@@ -2,3 +2,7 @@ data
 figures
 *.ipynb
 convertData.py
+*.csv
+__pycache__
+.idea
+docs
