@@ -121,13 +121,13 @@ def load_ndr(
 
 
 def load_transcript_data(
-        ref_genome: str = 'data/ref/SacCer3.fa',
-        tss_path: str = 'data/ref/GSE49026_S-TSS.txt',
-        pas_path: str = 'data/ref/GSE49026_S-PAS.txt',
-        pol2_path: str = 'data/seq/L3_UV4_chip_pol2_wt_nouv.bw',
-        med_path: str = 'data/seq/Med14_Med14-Myc_WT.bin25.norm.bw',
-        sth_path: str = 'data/seq/IP-Myc_Sth1-Myc_MED17.bin25.norm.bw',  # TODO Is that correct?
-        mnase_path: str = 'data/seq/MNase_WT_A.bw',
+        ref_genome: str = 'data/ref/SacCer3.fa',  # UCSC
+        tss_path: str = 'data/ref/GSE49026_S-TSS.txt',  # Park et al.
+        pas_path: str = 'data/ref/GSE49026_S-PAS.txt',  # Park et al.
+        pol2_path: str = 'data/seq/L5_18.BT2.SacCer3.RPM.Norm.bw',  # Georges et al.
+        med_path: str = 'data/seq/Med14_Med14-Myc_WT.bin25.norm.bw',  # Andre et al.
+        sth_path: str = 'data/seq/IP-Myc_Sth1-Myc_MED17.bin25.norm.bw',  # Andre et al.
+        mnase_path: str = 'data/seq/MNase_WT_A.bw',  # Andre et al.
         min_size: Union[None, int] = None,
         max_size: Union[None, int] = None
 ):
