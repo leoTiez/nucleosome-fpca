@@ -33,10 +33,13 @@ def parse_args(args):
                     help='If set, base analysis on clusters where all genes were considered.')
     ap.add_argument('--all_cond_one_plot', action='store_true', dest='all_cond_one_plot',
                     help='If set, plot all other nuclear properties in single plot.')
-    ap.add_argument('--do_not_equalize', action='store_true', dest='do_not_equalize',
-                    help='If set, clusters are not equalised in size.')
+    ap.add_argument('--do_equalize', action='store_true', dest='do_equalize',
+                    help='If set, clusters are equalised in size.')
     ap.add_argument('--do_not_merge', action='store_true', dest='do_not_merge',
                     help='If set, different wt and mutant conditions are not plot together in single figure.')
+    ap.add_argument('--use_all_cluster', action='store_true', dest='use_all_cluster',
+                    help='If set, use clustering that was obtained using all transcripts. '
+                         'Only changes behaviour if setup is not all.')
     return ap.parse_args(args)
 
 
@@ -124,12 +127,12 @@ def pearson_plot(data_profiles, n_bins: int = 100, n_repeat: int = 500, save_fig
             label='Cluster JS'
         )
         ax[1].vlines(
-            gamma.interval(1. - 1e-2, fit_alpha, loc=fit_loc, scale=fit_beta),
+            gamma.interval(1. - 5e-2, fit_alpha, loc=fit_loc, scale=fit_beta),
             ymin=0.,
             ymax=200,
             linestyle='--',
             color='tab:orange',
-            label='PI 1e-2'
+            label='PI 5e-2'
         )
         ax[1].legend()
         ax[1].set_title('Random Jensen-Shannon Distances')
@@ -495,7 +498,8 @@ def main(args):
     save_fig = args.save_fig
     save_prefix = args.save_prefix
     make_single = not args.all_cond_one_plot
-    equalize_clusters = not args.do_not_equalize
+    equalize_clusters = args.do_equalize
+    use_all_cluster = args.use_all_cluster
     merge_conditions = not args.do_not_merge
     min_size = None
     max_size = None
@@ -513,6 +517,9 @@ def main(args):
     else:
         raise ValueError('Setup not understood. Choose between small | large | very_large | all')
 
+    # Overwrite path if all_cluster flag is set
+    if use_all_cluster:
+        dir_path = 'data/mat'
     print('Load transcript data')
     transcript_data = load_transcript_data(min_size=min_size, max_size=max_size)
     print('Load nucleosome profiles')
