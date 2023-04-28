@@ -6,6 +6,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+import matplotlib.patheffects as pe
 
 from scipy.spatial.distance import jensenshannon
 from scipy.stats.distributions import gamma
@@ -163,14 +164,22 @@ def plot_clustering(
     def make_score_plot(ax_score, clust, c, w, b, line_col='grey'):
         ax_score.scatter(*scores.T, color=c[clust], marker='.')
         if w is not None and b is not None:
+            # and not any([name.replace('Ocampo_', '').replace('_A', '').replace('_B', '').replace('_', ' ').lower()
+            # == r for r in remove]):
+            if line_col == 'grey':
+                peffect = [pe.Stroke(linewidth=8, foreground='black'), pe.Normal()]
+            else:
+                peffect = []
             ax_score.plot(
                 np.arange(*boundaries),
                 w * np.arange(*boundaries) + b,
                 color=line_col,
+                path_effects=peffect,
                 linestyle='--',
                 lw='4'
             )
         else:
+            # pass
             raise ValueError('weight and bias have not been set')
         ax_score.set_ylim(boundaries)
         ax_score.set_xlim(boundaries)
@@ -200,7 +209,7 @@ def plot_clustering(
         ax2.set_xticks([])
         ax2.set_ylabel('JS distance: %.3f' % jensenshannon(hist21, hist22), rotation=270, labelpad=20)
 
-    colors = np.array([[1., 0., 0., 1., ], [0., .8, .1, 1., ]])
+    colors = np.array([[0., 0., 1., 1., ], [1., .6, .2, 1., ]])
     colors_pol2 = np.array([[0., 0., 1., 1.], [1., 1., 0., 1.]])
     colors_med = np.array([[.5, .5, 0., 1.], [0., .5, 1., 1.]])
     colors_sth = np.array([[.1, .5, .8, 1.], [.8, .5, 0., 1.]])
@@ -256,6 +265,7 @@ def plot_clustering(
         ['Short', 'Long'],
         ['Opposite', 'Tandem'],
     ]
+    # remove = ['wt', 'isw1', 'isw2', 'isw1 chd1', 'rsc8 chd1', 'isw1 isw2', 'isw1 isw2 chd1']
     weight, bias = None, None
     for i_num, (cluster, cl, n, hn) in enumerate(zip(all_clusters, all_colors, all_names, handle_names)):
         if make_single:
@@ -311,7 +321,13 @@ def plot_clustering(
             ax_score_c.set_title(n, fontsize=18)
         else:
             ax_score_c.set_title(n, fontsize=18)
-        handles.append(Line2D([0], [0], color='black' if n.lower() == 'cluster' else 'grey', linestyle='--'))
+        if n.lower() == 'cluster':
+            path_effects = []
+            color = 'black'
+        else:
+            path_effects = [pe.Stroke(linewidth=4, foreground='black'), pe.Normal()]
+            color = 'grey'
+        handles.append(Line2D([0], [0], color=color, path_effects=path_effects, linestyle='--'))
         hn.append('%.3fx + %.3f, Error: %.1f%%' % (weight, bias, error * 100.))
         ax_score_c.legend(handles, hn)
         ax_score_c.set_xlabel('fPC 1')
