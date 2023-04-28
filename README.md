@@ -1,4 +1,4 @@
-# Functional Principle Component Analysis  for Nucleosome Data
+# Functional Principal Component Analysis  for Nucleosome Data
 
 Nucleosomes package the DNA in the spatially constraining nucleus. Consequently, their dynamics determine accessibility
 to the sequence and regulate other processes such as transcription and repair. Whilst much research effort
@@ -31,7 +31,7 @@ python3.8 clusterPLots.py --help
 
 to have all information about the cli parameters and their usage.
 
-![fPCA clusters](figures/cluster/fpc_cluster/large_genes_all_cluster.png)
+![fPCA clusters](figures/paper/fpca-large-genes-font-A.png)
 
 ## Run Correlation Analysis
 Correlation analysis is performed by 
