@@ -41,6 +41,9 @@ def parse_args(args):
     ap.add_argument('--use_all_cluster', action='store_true', dest='use_all_cluster',
                     help='If set, use clustering that was obtained using all transcripts. '
                          'Only changes behaviour if setup is not all.')
+    ap.add_argument('--dir_path', type=str, default=None,
+                    help='If set, load profiles saved in this directory. Otherwise, take default which is linked to '
+                         'the passed setup.')
     return ap.parse_args(args)
 
 
@@ -195,7 +198,7 @@ def plot_clustering(
         ax1.set_xlim(boundaries)
         ax1.set_xticks([])
         ax1.set_yticks([])
-        ax1.set_xlabel('JS distance: %.3f' % jensenshannon(hist11, hist12))
+        ax1.set_xlabel('JS: %.3f' % jensenshannon(hist11, hist12), fontsize=14)
 
         if make_single:
             ax2.plot(hist21, bins21[:-1] + (bins21[1] - bins21[0]), color=c[0])
@@ -207,7 +210,7 @@ def plot_clustering(
         ax2.set_ylim((-20, 20))
         ax2.set_yticks([])
         ax2.set_xticks([])
-        ax2.set_ylabel('JS distance: %.3f' % jensenshannon(hist21, hist22), rotation=270, labelpad=20)
+        ax2.set_ylabel('JS: %.3f' % jensenshannon(hist21, hist22), rotation=270, labelpad=20, fontsize=14)
 
     colors = np.array([[0., 0., 1., 1., ], [1., .6, .2, 1., ]])
     colors_pol2 = np.array([[0., 0., 1., 1.], [1., 1., 0., 1.]])
@@ -265,7 +268,7 @@ def plot_clustering(
         ['Short', 'Long'],
         ['Opposite', 'Tandem'],
     ]
-    # remove = ['wt', 'isw1', 'isw2', 'isw1 chd1', 'rsc8 chd1', 'isw1 isw2', 'isw1 isw2 chd1']
+    remove = ['wt', 'isw1', 'isw2', 'isw1 chd1', 'rsc8 chd1', 'isw1 isw2', 'isw1 isw2 chd1']
     weight, bias = None, None
     for i_num, (cluster, cl, n, hn) in enumerate(zip(all_clusters, all_colors, all_names, handle_names)):
         if make_single:
@@ -327,13 +330,13 @@ def plot_clustering(
         else:
             path_effects = [pe.Stroke(linewidth=4, foreground='black'), pe.Normal()]
             color = 'grey'
-        handles.append(Line2D([0], [0], color=color, path_effects=path_effects, linestyle='--'))
-        hn.append('%.3fx + %.3f, Error: %.1f%%' % (weight, bias, error * 100.))
-        ax_score_c.legend(handles, hn)
-        ax_score_c.set_xlabel('fPC 1')
-        ax_score_c.set_ylabel('fPC 2')
+        ax_score_c.set_xlabel('fPC 1', fontsize=18)
+        ax_score_c.set_ylabel('fPC 2', fontsize=18)
         ax_score_c.set_xlim((-20., 20))
         ax_score_c.set_ylim((-20., 20))
+        ax_score_c.set_xticks([])
+        ax_score_c.set_yticks([])
+
         if not make_single:
             ax_hist_c1.legend(handles, hn)
             ax_hist_c1.set_title(n)
@@ -343,6 +346,10 @@ def plot_clustering(
             ax_hist_c1.set_ylim((-20., 20))
         if make_single:
             fig_c.suptitle(name.replace('_', ' '), fontsize=21)
+            fig_c.tight_layout()
+            handles.append(Line2D([0], [0], color=color, path_effects=path_effects, linestyle='--'))
+            hn.append('%.3fx + %.3f, Error: %.1f%%' % (weight, bias, error * 100.))
+            ax_score_c.legend(handles, hn, fontsize=14)
             if save_fig:
                 Path('figures/cluster/fpc_cluster').mkdir(exist_ok=True, parents=True)
                 fig_c.savefig('figures/cluster/fpc_cluster/%s_fpc_scores_%s_single_%s.png' % (save_prefix, name, n))
@@ -445,10 +452,14 @@ def fpca_plot(
 
         fig, ax = plt.subplots(1, 1, figsize=(5, 4))
         fpca.components_.plot(chart=ax)
-        fig.suptitle('fPCA all profiles')
-        ax.set_xlabel('Position')
-        ax.set_ylabel('Amplitude')
-        fig.legend(['fPC 1', 'fPC 2'])
+        fig.suptitle('fPCA all profiles', fontsize=21)
+        ax.set_xlabel('Position', fontsize=16)
+        ax.set_ylabel('Amplitude', fontsize=16)
+        fig.legend(['fPC 1', 'fPC 2'], fontsize=16)
+        ax.set_xticks(np.arange(0, 1201, 200))
+        ax.set_yticks([])
+        ax.set_xticklabels([-200, '+1', 200, 400, 600, 800, 1000])
+        ax.tick_params(axis='x', labelsize=14)
         fig.tight_layout()
         if save_fig:
             Path('figures/cluster/fpc').mkdir(exist_ok=True, parents=True)
@@ -468,6 +479,18 @@ def fpca_plot(
         ax_list = fig.axes
         ax_list[0].set_title('fPC 1', fontsize=18)
         ax_list[1].set_title('fPC 2', fontsize=18)
+        for a in ax_list:
+            a.set_yticks([])
+            a.set_xticks(np.arange(0, 1201, 200))
+            a.set_xticklabels([-200, '+1', 200, 400, 600, 800, 1000])
+            a.tick_params(axis='x',  labelsize=14)
+            a.get_lines()[0].set_color('black')
+            a.get_lines()[0].set_linestyle('--')
+            a.get_lines()[0].set_linewidth(2)
+            a.get_lines()[1].set_color('magenta')
+            a.get_lines()[1].set_linewidth(2)
+            a.get_lines()[2].set_color('limegreen')
+            a.get_lines()[2].set_linewidth(2)
         fig.suptitle('%s' % data_name.replace('_', ' '), fontsize=21)
         fig.tight_layout()
 
@@ -536,14 +559,16 @@ def main(args):
     # Overwrite path if all_cluster flag is set
     if use_all_cluster:
         dir_path = 'data/mat'
+    if args.dir_path is not None:
+        dir_path = args.dir_path
     print('Load transcript data')
     transcript_data = load_transcript_data(min_size=min_size, max_size=max_size)
     print('Load nucleosome profiles')
     data_profiles = load_all_data(transcript_data, equalize_clusters=equalize_clusters, dir_path=dir_path)
-    print('Create cluster histograms')
-    create_cluster_hist(data_profiles, save_fig=save_fig, save_prefix=save_prefix)
-    print('Create pearson plots')
-    pearson_plot(data_profiles, save_fig=save_fig, save_prefix=save_prefix)
+    # print('Create cluster histograms')
+    # create_cluster_hist(data_profiles, save_fig=save_fig, save_prefix=save_prefix)
+    # print('Create pearson plots')
+    # pearson_plot(data_profiles, save_fig=save_fig, save_prefix=save_prefix)
     print('Perform fpca')
     fpca_plot(
         data_profiles,
