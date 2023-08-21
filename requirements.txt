@@ -5,3 +5,4 @@ matplotlib~=3.6.3
 scipy~=1.7.3
 scikit-learn~=1.2.0
 biopython~=1.80
+scikit-fda~=0.8
