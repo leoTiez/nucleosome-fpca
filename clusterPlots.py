@@ -1,10 +1,12 @@
 import sys
 import argparse
 from pathlib import Path
+from typing import Dict
 
 import numpy as np
 
 import matplotlib.pyplot as plt
+from pandas import DataFrame
 from matplotlib.lines import Line2D
 import matplotlib.patheffects as pe
 
@@ -21,6 +23,15 @@ from sklearn import svm
 from loadData import load_transcript_data, load_all_data, create_clusters, smooth
 from multivariatePrediction import learn, pred
 
+COLORS = np.array([[0., 0., 1., 1., ], [1., .6, .2, 1., ]])
+COLORS_POL2 = np.array([[0., 0., 1., 1.], [1., 1., 0., 1.]])
+COLORS_MED = np.array([[.5, .5, 0., 1.], [0., .5, 1., 1.]])
+COLORS_STH = np.array([[.1, .5, .8, 1.], [.8, .5, 0., 1.]])
+COLORS_SIZE = np.array([[1., .0, 1., 1.], [.5, 1., 0., 1.]])
+COLORS_SEQ = np.array([[.0, .5, .5, 1.], [1., .5, .5, 1.]])
+COLORS_NDR_SIZE = np.array([[.0, .7, .7, 1.], [1., .5, 1., 1.]])
+COLORS_ORIENTATION = np.array([[1., 1., 0., 1.], [0., 0., .0, 1.]])
+
 
 def parse_args(args):
     ap = argparse.ArgumentParser('Prediction and correlation test between clusters and other nuclear properties')
@@ -36,8 +47,9 @@ def parse_args(args):
                     help='If set, plot all other nuclear properties in single plot.')
     ap.add_argument('--do_equalize', action='store_true', dest='do_equalize',
                     help='If set, clusters are equalised in size.')
-    ap.add_argument('--do_not_merge', action='store_true', dest='do_not_merge',
-                    help='If set, different wt and mutant conditions are not plot together in single figure.')
+    ap.add_argument('--merge_replicate', type=str, default='A',
+                    help='Define the replicate for which all cluster scatter plots are set side by side in one figure. '
+                         'Choose between A | B | none')
     ap.add_argument('--use_all_cluster', action='store_true', dest='use_all_cluster',
                     help='If set, use clustering that was obtained using all transcripts. '
                          'Only changes behaviour if setup is not all.')
@@ -47,21 +59,33 @@ def parse_args(args):
     return ap.parse_args(args)
 
 
-def create_cluster_hist(data_profiles, save_fig: bool = True, save_prefix: str = ''):
+def create_cluster_hist(
+        data_profiles: DataFrame,
+        save_fig: bool = True,
+        save_prefix: str = '',
+        save_dir: str = ''
+):
     plt.figure(figsize=(8, 7))
     for data_name, dp in data_profiles.items():
         plt.hist(dp['cluster'], bins=2, histtype='step')
     plt.xticks([1.25, 1.75], [1, 2])
     plt.title('Cluster distribution')
     if save_fig:
-        Path('figures/cluster/hist/').mkdir(exist_ok=True, parents=True)
-        plt.savefig('figures/cluster/hist/%s_cluster_hist.png' % save_prefix)
+        Path('figures/cluster/hist/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+        plt.savefig('figures/cluster/hist/%s%s_cluster_hist.png' % (save_dir, save_prefix))
         plt.close('all')
     else:
         plt.show()
 
 
-def pearson_plot(data_profiles, n_bins: int = 100, n_repeat: int = 500, save_fig: bool = True, save_prefix: str = ''):
+def pearson_plot(
+        data_profiles: DataFrame,
+        n_bins: int = 100,
+        n_repeat: int = 500,
+        save_fig: bool = True,
+        save_prefix: str = '',
+        save_dir: str = ''
+):
     drop_list = [
         'cluster',
         'Pol2',
@@ -146,29 +170,95 @@ def pearson_plot(data_profiles, n_bins: int = 100, n_repeat: int = 500, save_fig
         fig.tight_layout()
 
         if save_fig:
-            Path('figures/cluster/JS/').mkdir(exist_ok=True, parents=True)
-            plt.savefig('figures/cluster/JS/%s_random_js_%s.png' % (save_prefix, data_name))
+            Path('figures/cluster/JS/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+            plt.savefig('figures/cluster/JS/%s%s_random_js_%s.png' % (save_dir, save_prefix, data_name))
             plt.close(fig)
+        else:
+            fig.show()
+
+
+def plot_profile_heatmap(
+        data_profiles: Dict[str, DataFrame],
+        cmap: str = 'copper',
+        save_fig: bool = True,
+        save_prefix: str = '',
+        save_dir: str = '',
+):
+    drop_list = [
+        'cluster',
+        'Pol2',
+        'Sth',
+        'Med',
+        'AT',
+        'GC',
+        'ORF',
+        'size',
+        'orientation',
+        'chr',
+        'start',
+        'end',
+        'NDR length'
+    ]
+    for data_name, dp in data_profiles.items():
+        print('\t%s' % data_name)
+        dp_array = dp.drop(drop_list, axis=1).to_numpy()
+        cluster_mask = dp['cluster'] == 1
+        plt.figure(figsize=(3, 2.7))
+        plt.imshow(dp_array[cluster_mask], cmap=cmap, aspect='auto')
+        plt.xlabel('Position', fontsize=10)
+        plt.ylabel('Genes (%s)' % np.sum(cluster_mask), fontsize=10)
+        plt.xticks(np.arange(0, 1201, 200), [-200, +1, 200, 400, 600, 800, 1000], fontsize=8)
+        plt.yticks([])
+        plt.title('Heatmap Cluster 1', fontsize=12)
+        plt.tight_layout()
+        if save_fig:
+            Path('figures/cluster/heatmap/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+            plt.savefig('figures/cluster/heatmap/%s%s_heatmap1_%s.png' % (save_dir, save_prefix, data_name), dpi=300)
+            plt.close()
+        else:
+            plt.show()
+
+        plt.figure(figsize=(3, 2.7))
+        plt.imshow(dp_array[~cluster_mask], cmap=cmap, aspect='auto')
+        plt.xlabel('Position', fontsize=10)
+        plt.ylabel('Genes (%s)' % np.sum(~cluster_mask), fontsize=10)
+        plt.xticks(np.arange(0, 1201, 200), [-200, +1, 200, 400, 600, 800, 1000], fontsize=8)
+        plt.yticks([])
+        plt.title('Heatmap Cluster 2', fontsize=12)
+        plt.tight_layout()
+        if save_fig:
+            Path('figures/cluster/heatmap/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+            plt.savefig('figures/cluster/heatmap/%s%s_heatmap2_%s.png' % (save_dir, save_prefix, data_name), dpi=300)
+            plt.close()
         else:
             plt.show()
 
 
 def plot_clustering(
-        scores,
-        profiles,
-        name,
+        scores: np.ndarray,
+        profiles: DataFrame,
+        name: str,
         n_bins: bool = 100,
         save_fig: bool = True,
         save_prefix: str = '',
         make_single: bool = True,
         cluster_ax: plt.Axes = None,
         boundaries=(-20, 20),
+        do_remove: bool = False,
+        save_dir: str = ''
 ):
     def make_score_plot(ax_score, clust, c, w, b, line_col='grey'):
         ax_score.scatter(*scores.T, color=c[clust], marker='.')
-        if w is not None and b is not None:
-            # and not any([name.replace('Ocampo_', '').replace('_A', '').replace('_B', '').replace('_', ' ').lower()
-            # == r for r in remove]):
+        condition = w is not None and b is not None
+
+        if not condition and not do_remove:
+            raise ValueError('weight and bias have not been set')
+
+        if do_remove:
+            condition = condition and not any([name.replace('Ocampo_', '').replace('_A', '').replace(
+                '_B', '').replace('_', ' ').lower() == r for r in remove])
+
+        if condition:
             if line_col == 'grey':
                 peffect = [pe.Stroke(linewidth=8, foreground='black'), pe.Normal()]
             else:
@@ -181,9 +271,7 @@ def plot_clustering(
                 linestyle='--',
                 lw='4'
             )
-        else:
-            # pass
-            raise ValueError('weight and bias have not been set')
+
         ax_score.set_ylim(boundaries)
         ax_score.set_xlim(boundaries)
 
@@ -212,17 +300,12 @@ def plot_clustering(
         ax2.set_xticks([])
         ax2.set_ylabel('JS: %.3f' % jensenshannon(hist21, hist22), rotation=270, labelpad=20, fontsize=14)
 
-    colors = np.array([[0., 0., 1., 1., ], [1., .6, .2, 1., ]])
-    colors_pol2 = np.array([[0., 0., 1., 1.], [1., 1., 0., 1.]])
-    colors_med = np.array([[.5, .5, 0., 1.], [0., .5, 1., 1.]])
-    colors_sth = np.array([[.1, .5, .8, 1.], [.8, .5, 0., 1.]])
-    colors_size = np.array([[1., .0, 1., 1.], [.5, 1., 0., 1.]])
-    colors_seq = np.array([[.0, .5, .5, 1.], [1., .5, .5, 1.]])
-    colors_orientation = np.array([[1., 1., 0., 1.], [0., 0., .0, 1.]])
-    colors_ndr_size = np.array([[.0, .7, .7, 1.], [1., .5, 1., 1.]])
-
-    if np.sum(scores.T[0]) <= np.sum(scores.T[1]):
-        colors = np.flip(colors, axis=0)
+    did_flip = False
+    if np.sum(scores[profiles['cluster'] == 1].T[1]) <= np.sum(scores[profiles['cluster'] == 2].T[1]):
+        colors = np.flip(COLORS, axis=0)
+        did_flip = True
+    else:
+        colors = COLORS
 
     if not make_single:
         fig, ax = plt.subplots(4, 2, figsize=(6, 11))
@@ -240,13 +323,13 @@ def plot_clustering(
     ]
     all_colors = [
         colors,
-        colors_pol2,
-        colors_med,
-        colors_sth,
-        colors_size,
-        colors_seq,
-        colors_ndr_size,
-        colors_orientation
+        COLORS_POL2,
+        COLORS_MED,
+        COLORS_STH,
+        COLORS_SIZE,
+        COLORS_SEQ,
+        COLORS_NDR_SIZE,
+        COLORS_ORIENTATION
     ]
     all_names = [
         'Cluster',
@@ -285,6 +368,7 @@ def plot_clustering(
         if n.lower() == 'cluster':
             clf = svm.LinearSVC().fit(scores, cluster)
             weight, bias = -clf.coef_[..., 0] / clf.coef_[..., 1], -clf.intercept_ / clf.coef_[..., 1]
+
         make_score_plot(
             ax_score_c,
             clust=cluster,
@@ -351,11 +435,12 @@ def plot_clustering(
             hn.append('%.3fx + %.3f, Error: %.1f%%' % (weight, bias, error * 100.))
             ax_score_c.legend(handles, hn, fontsize=14)
             if save_fig:
-                Path('figures/cluster/fpc_cluster').mkdir(exist_ok=True, parents=True)
-                fig_c.savefig('figures/cluster/fpc_cluster/%s_fpc_scores_%s_single_%s.png' % (save_prefix, name, n))
+                Path('figures/cluster/fpc_cluster/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+                fig_c.savefig('figures/cluster/fpc_cluster/%s%s_fpc_scores_%s_single_%s.png'
+                              % (save_dir, save_prefix, name, n))
                 plt.close(fig_c)
             else:
-                plt.show()
+                fig_c.show()
 
     if not make_single:
         if cluster_ax is None:
@@ -365,22 +450,31 @@ def plot_clustering(
             fig_hist.tight_layout()
 
             if save_fig:
-                Path('figures/cluster/fpc_cluster').mkdir(exist_ok=True, parents=True)
-                fig.savefig('figures/cluster/fpc_cluster/%s_fpc_scores_%s.png' % (save_prefix, name))
-                fig_hist.savefig('figures/cluster/fpc_cluster/%s_fpc_hist_%s.png' % (save_prefix, name))
+                Path('figures/cluster/fpc_cluster/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+                fig.savefig('figures/cluster/fpc_cluster/%s%s_fpc_scores_%s.png' % (save_dir, save_prefix, name))
+                fig_hist.savefig('figures/cluster/fpc_cluster/%s%s_fpc_hist_%s.png' % (save_dir, save_prefix, name))
                 plt.close(fig)
                 plt.close(fig_hist)
             else:
-                plt.show()
+                fig_hist.show()
+                fig.show()
+
+    return (
+        weight,
+        bias,
+        did_flip
+    ) if not do_remove else (None, None, None)
 
 
 def fpca_plot(
-        data_profiles,
+        data_profiles: Dict[str, DataFrame],
         n_basis: int = 20,
         save_fig: bool = True,
         save_prefix: str = '',
         make_single: bool = True,
-        merge_conditions: bool = False,
+        merge_replicate: str = '_A',
+        do_remove: bool = False,
+        save_dir: str = ''
 ):
     bspline_basis = BSplineBasis(n_basis=n_basis)
     drop_list = [
@@ -398,7 +492,7 @@ def fpca_plot(
                 'end',
                 'NDR length'
             ]
-    if merge_conditions:
+    if merge_replicate != 'none':
         merge_fig, merge_ax = plt.subplots(4, 4, figsize=(8, 9))
         ax_dict = {
             'wt': (0, 0),
@@ -420,9 +514,10 @@ def fpca_plot(
         }
     for data_name, dp in data_profiles.items():
         print('\t%s' % data_name)
+        x_scale = np.arange(dp.drop(drop_list, axis=1).to_numpy().shape[1])
         dp_fd = FDataGrid(
             data_matrix=dp.drop(drop_list, axis=1).to_numpy(),
-            grid_points=np.arange(dp.drop(drop_list, axis=1).to_numpy().shape[1]),
+            grid_points=x_scale,
         )
         bspline_data = dp_fd.to_basis(bspline_basis)
         fig, ax = plt.subplots(1, 3, figsize=(11, 4))
@@ -441,11 +536,11 @@ def fpca_plot(
         ax[2].set_ylabel('Amplitude')
         plt.tight_layout()
         if save_fig:
-            Path('figures/cluster/bspline').mkdir(exist_ok=True, parents=True)
-            plt.savefig('figures/cluster/bspline/%s_bspline_profile_%s.png' % (save_prefix, data_name))
+            Path('figures/cluster/bspline/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+            plt.savefig('figures/cluster/bspline/%s%s_bspline_profile_%s.png' % (save_dir, save_prefix, data_name))
             plt.close(fig)
         else:
-            plt.show()
+            fig.show()
 
         fpca = FPCA(n_components=2)
         fpc_scores = fpca.fit_transform(bspline_data)
@@ -462,8 +557,8 @@ def fpca_plot(
         ax.tick_params(axis='x', labelsize=14)
         fig.tight_layout()
         if save_fig:
-            Path('figures/cluster/fpc').mkdir(exist_ok=True, parents=True)
-            fig.savefig('figures/cluster/fpc/%s_fpc_%s.png' % (save_prefix, data_name))
+            Path('figures/cluster/fpc/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+            fig.savefig('figures/cluster/fpc/%s%s_fpc_%s.png' % (save_dir, save_prefix, data_name))
             plt.close(fig)
         else:
             fig.show()
@@ -495,39 +590,96 @@ def fpca_plot(
         fig.tight_layout()
 
         if save_fig:
-            Path('figures/cluster/fpc_effect').mkdir(exist_ok=True, parents=True)
-            fig.savefig('figures/cluster/fpc_effect/%s_fpc_effect_%s.png' % (save_prefix, data_name))
+            Path('figures/cluster/fpc_effect/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+            fig.savefig('figures/cluster/fpc_effect/%s%s_fpc_effect_%s.png' % (save_dir, save_prefix, data_name))
             plt.close(fig)
         else:
             fig.show()
 
         cluster_ax = None
-        if merge_conditions:
-            if '_A' in data_name:
-                sample_name = data_name.replace('_A', '').replace('Ocampo_', '').lower()
-                try:
-                    cluster_ax = merge_ax[ax_dict[sample_name]]
-                    cluster_ax.set_title(sample_name.replace('_', ' '), fontsize=16)
-                    cluster_ax.set_xticks([])
-                    cluster_ax.set_yticks([])
-                except:
-                    cluster_ax = None
+        if merge_replicate in data_name:
+            sample_name = data_name.replace(merge_replicate, '').replace('Ocampo_', '').lower()
+            try:
+                cluster_ax = merge_ax[ax_dict[sample_name]]
+                cluster_ax.set_title(sample_name.replace('_', ' '), fontsize=16)
+                cluster_ax.set_xticks([])
+                cluster_ax.set_yticks([])
+            except:
+                cluster_ax = None
 
-        plot_clustering(
+        (
+            weight,
+            bias,
+            did_flip
+        ) = plot_clustering(
             fpc_scores,
             dp,
             data_name,
             save_fig=save_fig,
             save_prefix=save_prefix,
             make_single=make_single,
-            cluster_ax=cluster_ax
+            cluster_ax=cluster_ax,
+            do_remove=do_remove,
+            save_dir=save_dir
         )
+        if weight is None:
+            continue
+        upper_precision = (bspline_data.mean() + 5. * (
+                weight * fpca.components_[0]
+                + fpca.components_[1]
+        ) / (np.abs(weight) + 1.))(x_scale).reshape(-1)
+
+        lower_precision = (bspline_data.mean() - 5. * (
+                weight * fpca.components_[0]
+                + fpca.components_[1]
+        ) / (np.abs(weight) + 1.))(x_scale).reshape(-1)
+
+        cluster_1_scores = np.median(fpc_scores[dp['cluster'] == 1], axis=0)
+        cluster_2_scores = np.median(fpc_scores[dp['cluster'] == 2], axis=0)
+        average_fpc_c1 = bspline_data.mean() + (
+                cluster_1_scores[:1] * fpca.components_[0]  # Need array format for weight
+                + cluster_1_scores[1:] * fpca.components_[1]  # Need array format for weight
+        )
+        average_fpc_c2 = bspline_data.mean() + (
+            cluster_2_scores[:1] * fpca.components_[0]  # Need array format for weight
+            + cluster_2_scores[1:] * fpca.components_[1]  # Need array format for weight
+        )
+        colors = np.flip(COLORS, axis=0) if did_flip else COLORS
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+        bspline_data.mean().plot(chart=ax, color='black', lw=2, label='Mean')
+        ax.plot(lower_precision, color='grey')
+        ax.plot(upper_precision, color='grey')
+        ax.fill_between(
+            x_scale,
+            lower_precision,
+            upper_precision,
+            color='black',
+            alpha=.15,
+            label='Discriminator'
+        )
+        average_fpc_c1.plot(chart=ax, color=colors[0], linestyle='--', lw=2, label='Cluster 1')
+        average_fpc_c2.plot(chart=ax, color=colors[1], linestyle='--', lw=2, label='Cluster 2')
+        ax.set_title('Cluster fPCs', fontsize=21)
+        # ax.legend(fontsize=16)
+        ax.set_yticks([])
+        ax.set_xticks(np.arange(0, 1201, 200))
+        ax.set_xticklabels([-200, '+1', 200, 400, 600, 800, 1000])
+        ax.set_xlabel('Position', fontsize=16)
+        ax.set_ylabel('Amplitude', fontsize=16)
+        ax.tick_params(axis='x', labelsize=14)
+        fig.tight_layout()
+        if save_fig:
+            Path('figures/cluster/discriminator/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+            fig.savefig('figures/cluster/discriminator/%s%s_discriminator_%s.png' % (save_dir, save_prefix, data_name))
+            plt.close(fig)
+        else:
+            fig.show()
 
     if save_fig:
         merge_fig.suptitle('%s' % save_prefix.replace('_', ' '))
         merge_fig.tight_layout()
-        Path('figures/cluster/fpc_cluster').mkdir(exist_ok=True, parents=True)
-        merge_fig.savefig('figures/cluster/fpc_cluster/%s_all_cluster.png' % save_prefix)
+        Path('figures/cluster/fpc_cluster/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+        merge_fig.savefig('figures/cluster/fpc_cluster/%s%s_all_cluster.png' % (save_dir, save_prefix))
         plt.close(merge_fig)
     else:
         merge_fig.show()
@@ -539,20 +691,36 @@ def main(args):
     make_single = not args.all_cond_one_plot
     equalize_clusters = args.do_equalize
     use_all_cluster = args.use_all_cluster
-    merge_conditions = not args.do_not_merge
+    merge_replicate = args.merge_replicate
+    if merge_replicate.lower() == 'none':
+        merge_replicate = 'none'
+    elif merge_replicate.lower() == 'a':
+        merge_replicate = '_A'
+    elif merge_replicate.lower() == 'b':
+        merge_replicate = '_B'
+    else:
+        raise ValueError('Merge replicate not understood. Choose between A | B | none')
     min_size = None
     max_size = None
+    do_remove = False
+    save_dir = 'all/' if use_all_cluster else 'size-specific/'
     if args.setup.lower() == 'small':
         dir_path = 'data/mat_small_genes'
         max_size = 1000
+        save_dir += 'small/'
+        if use_all_cluster:
+            do_remove = True
     elif args.setup.lower() == 'large':
         dir_path = 'data/mat_large_genes'
+        save_dir += 'large/'
         min_size = 1000
     elif args.setup.lower() == 'very_large':
         dir_path = 'data/mat'
+        save_dir += 'very_large/'
         min_size = 3000
     elif args.setup.lower() == 'all':
         dir_path = 'data/mat'
+        save_dir += 'all/'
     else:
         raise ValueError('Setup not understood. Choose between small | large | very_large | all')
 
@@ -565,17 +733,21 @@ def main(args):
     transcript_data = load_transcript_data(min_size=min_size, max_size=max_size)
     print('Load nucleosome profiles')
     data_profiles = load_all_data(transcript_data, equalize_clusters=equalize_clusters, dir_path=dir_path)
-    # print('Create cluster histograms')
-    # create_cluster_hist(data_profiles, save_fig=save_fig, save_prefix=save_prefix)
-    # print('Create pearson plots')
-    # pearson_plot(data_profiles, save_fig=save_fig, save_prefix=save_prefix)
+    print('Plot profile heatmap')
+    plot_profile_heatmap(data_profiles, save_dir=save_dir, save_prefix=save_prefix, save_fig=save_fig)
+    print('Create cluster histograms')
+    create_cluster_hist(data_profiles, save_fig=save_fig, save_prefix=save_prefix, save_dir=save_dir)
+    print('Create pearson plots')
+    pearson_plot(data_profiles, save_fig=save_fig, save_prefix=save_prefix, save_dir=save_dir)
     print('Perform fpca')
     fpca_plot(
         data_profiles,
         save_fig=save_fig,
         save_prefix=save_prefix,
         make_single=make_single,
-        merge_conditions=merge_conditions
+        merge_replicate=merge_replicate,
+        do_remove=do_remove,
+        save_dir=save_dir
     )
 
 
