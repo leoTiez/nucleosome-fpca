@@ -6,18 +6,53 @@ has been spent on characterising dynamics around Nucleosome Depleted Regions, it
 phasing along the gene body. We combine Pearson correlation as average linear correlation measurement with 
 location-specific fPCA.
 
+## Pre-requirements
+Download the data from Ocampo et al. (2016, 2019)[1, 2], and align profiles according to the +1 position as described in their paper.
+Note that our study started from the FASTQ file, performing the mapping and quality control as in André et al. (2013).
+In order to run the scripts, data should be saved in a folder called `data`.
+
 ## Requirements
 Code uses `Matlab` (Pearson clustering) and `Python` (fPCA and correlation). Python code was implemented in `python3` 
-(tested on `python3.8`). Necessary packages can be installed via `pip`. Run for their installation
+(tested on `python3.8`). Matlab code was tested on `R2018a`. Necessary packages can be installed via `pip`. Run for their installation
 
 ```commandline
 python3.8 -m pip install -r requirements.txt
 ```
 
 ## Determine Pearson Clusters
-TODO
+The clustering is implemented in Matlab. It's recommended to be run in the official IDE. Make sure the data is already present
+in a folder called `data`, and +1-aligned profiles for each strain are in a folder named after the cell strain.
+If you want to change the size of genes considered for all clusters, modify line 3 in `cluster_kmean_all_size.m`
 
-## Run fPCA on Pearson Clusters
+```matlab
+ORF_g = ORF(gene_size>=1000);
+```
+
+to the desired operation. Remember to change the naming of the target folder in line 7
+
+```matlab
+data_work = [char(name_dir(i).folder),'/cluster_all_ge_1000/',char(name_dir(i).name)];
+```
+
+Similarly, if you want to change the size of genes for the size-specific clustering,
+change line 3 in `cluster_kmean_size.m`
+
+```matlab
+ORF_g = ORF(gene_size<1000);
+```
+
+to the desired operation. As before, remember to modify line 7 to change the target folder
+
+```matlab 
+data_work = [char(name_dir(i).folder),'/cluster_lit_1000/',char(name_dir(i).name)];
+```
+
+## Run fPCA on Pearson Cluster
+The fPCA presented in the paper was performed on two clusters. Rename the cluster folder created in the previous step
+for 2 clusters such that the cluster result can be found in the directory `data/mat` for clustering performed on all genes,
+`data/mat_small_genes` for small genes, and `data/mat_large_genes` for large genes. Folders of the cell strains with in these
+directories are named after the cell strain without the `*.bam` suffix.
+
 To run the clustering analysis using the Jehnsen-Shannon distance and fPCA run
 
 ```commandline
