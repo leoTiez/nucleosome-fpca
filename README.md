@@ -1,5 +1,7 @@
 # Functional Principal Component Analysis  for Nucleosome Data
 
+[![DOI](https://zenodo.org/badge/621224643.svg)](https://zenodo.org/badge/latestdoi/621224643)
+
 Nucleosomes package the DNA in the spatially constraining nucleus. Consequently, their dynamics determine accessibility
 to the sequence and regulate other processes such as transcription and repair. Whilst much research effort
 has been spent on characterising dynamics around Nucleosome Depleted Regions, it is difficult to evaluate the coordinated
