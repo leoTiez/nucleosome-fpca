@@ -53,6 +53,13 @@ for 2 clusters such that the cluster result can be found in the directory `data/
 `data/mat_small_genes` for small genes, and `data/mat_large_genes` for large genes. Folders of the cell strains with in these
 directories are named after the cell strain without the `*.bam` suffix.
 
+For getting a feeling for the implemented analysis in a step-by-step manner, look at the provided Jupyter notebooks.
+- An example case is given in `Example Case.ipynb`
+- The result for different base functions is presented in `Base function comparison.ipynb`
+- Conventional PCA is compared to fPCA in `Comparison fPCA and PCA.ipynb`
+- We plot nucleosome phasing with respect to Pol II occupancy as required by the reviewers in `Nucleosome phasing with respect to Pol II.ipynb`
+
+
 To run the clustering analysis using the Jehnsen-Shannon distance and fPCA run
 
 ```commandline
@@ -80,3 +87,10 @@ and run
 python3.8 multivariatePrediction.py --help
 ```
 to have all information about cli parameters and their usage.
+
+## References
+[1] Ocampo, J., Chereji, R. V., Eriksson, P. R., & Clark, D. J. (2016). The ISW1 and CHD1 ATP-dependent chromatin remodelers compete to set nucleosome spacing in vivo. Nucleic acids research, 44(10), 4625-4635.
+
+[2] Ocampo, J., Chereji, R. V., Eriksson, P. R., & Clark, D. J. (2019). Contrasting roles of the RSC and ISW1/CHD1 chromatin remodelers in RNA polymerase II elongation and termination. Genome research, 29(3), 407-417.
+
+[3] André, K. M., Aiach, N. G., Martinez-Fernandez, V., Zeitler, L., Alberti, A., Goldar, A., ... & Soutourina, J. (2023). Functional interplay between Mediator and RSC chromatin remodeling complex controls nucleosome-depleted region maintenance at promoters. Cell Reports, 42(5).
