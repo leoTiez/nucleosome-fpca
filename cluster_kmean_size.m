@@ -1,7 +1,7 @@
 %Filter by gene size then cluster
-load ('/data_directory/gene_size.mat');
+load ('/data/gene_size.mat');
 ORF_g = ORF(gene_size<1000);
-name_dir=dir('/data_directory/*.bam');
+name_dir=dir('/data/*.bam');
 for i =1:9
     data_dir = [char(name_dir(i).folder),'/',char(name_dir(i).name)];
     data_work = [char(name_dir(i).folder),'/cluster_lit_1000/',char(name_dir(i).name)];
