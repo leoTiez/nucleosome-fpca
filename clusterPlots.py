@@ -11,7 +11,8 @@ from matplotlib.lines import Line2D
 import matplotlib.patheffects as pe
 
 from scipy.spatial.distance import jensenshannon
-from scipy.stats.distributions import gamma
+from scipy.stats.distributions import beta
+from scipy.stats import kstest
 
 from skfda import FDataGrid
 from skfda.preprocessing.dim_reduction import FPCA
@@ -80,8 +81,10 @@ def create_cluster_hist(
 
 def pearson_plot(
         data_profiles: DataFrame,
-        n_bins: int = 100,
+        n_bins: int = 50,
         n_repeat: int = 500,
+        p_thresh: float = 5e-2,
+        n_subsample: int = 500,
         save_fig: bool = True,
         save_prefix: str = '',
         save_dir: str = ''
@@ -108,70 +111,64 @@ def pearson_plot(
 
         fig, ax = plt.subplots(1, 2, figsize=(8, 4))
         pearson = np.corrcoef(dp.drop(drop_list, axis=1).to_numpy())
-        hist_c1, _, _ = ax[0].hist(
-            pearson[dp['cluster'] == 1].reshape(-1),
+        cluster_correlation = pearson[dp['cluster'] == 1][:, dp['cluster'] == 2].reshape(-1)
+        hist_cluster, _, _ = ax[0].hist(
+            np.abs(cluster_correlation),
             bins=n_bins,
             histtype='step',
-            density=True
+            density=True,
+            label='Cluster',
+            color='purple',
+            lw=2,
+            alpha=.8
         )
-        hist_c2, _, _ = ax[0].hist(
-            pearson[dp['cluster'] == 2].reshape(-1),
-            bins=n_bins,
-            histtype='step',
-            density=True
+        ax[1].plot(
+            np.sort(np.abs(cluster_correlation)),
+            np.cumsum(np.sort(np.abs(cluster_correlation))) / np.sum(np.abs(cluster_correlation)), 
+            label='Cluster',
+            alpha=0.8,
+            color='purple',
+            lw=2
         )
-        ax[0].set_title('Jensen-Shannon: %.4f' % jensenshannon(hist_c1, hist_c2))
-        ax[0].set_xlabel('Value')
-        ax[0].set_ylabel('#Coefficients')
+        ax[0].set_title('Pearson correlation between cluster', fontsize=16)
+        ax[0].set_xlabel('Absolute Pearson coefficient', fontsize=12)
+        ax[0].set_ylabel('#Values', fontsize=12)
 
-        js_distances = []
+        ax[1].set_title('CDF Pearson correlation', fontsize=16)
+        ax[1].set_xlabel('Absolute Pearson coefficient', fontsize=12)
+        ax[1].set_ylabel('CDF', fontsize=12)
+
+        ks_pvalues = []
         for i in range(n_repeat):
-            rand_cluster = np.random.choice(
+            rand_cluster_idc = np.random.choice(
                 [1, 2],
                 p=[n_c1 / (n_c1 + n_c2), n_c2 / (n_c1 + n_c2)],
                 size=len(dp.index),
                 replace=True
             )
-            rand_hist1, _ = np.histogram(pearson[rand_cluster == 1].reshape(-1), bins=100, range=(-1., 1.))
-            rand_hist2, _ = np.histogram(pearson[rand_cluster == 2].reshape(-1), bins=100, range=(-1., 1.))
-            js_distances.append(jensenshannon(rand_hist1, rand_hist2))
+            rand_cluster = pearson[rand_cluster_idc == 1][:, rand_cluster_idc == 2].reshape(-1)
+            cluster_subsample = np.random.choice(cluster_correlation.size, replace=False, size=n_subsample)
+            rand_cluster_subsample = np.random.choice(rand_cluster.size, replace=False, size=n_subsample)
+            ks_pvalues.append(kstest(
+                np.abs(cluster_correlation)[cluster_subsample],
+                np.abs(rand_cluster)[rand_cluster_subsample],
+                alternative='greater'
+            ).pvalue)
 
-        js_distances = np.asarray(js_distances)
-        lower, upper = np.percentile(js_distances, (0., 99.))
-        js_distances = js_distances[np.logical_and(js_distances >= lower, js_distances < upper)]
-        fit_alpha, fit_loc, fit_beta = gamma.fit(js_distances)
-        ax[1].hist(js_distances, bins=100, density=True, label='Random clusters')
-        ax[1].plot(
-            np.arange(0, .1, 0.001),
-            gamma.pdf(np.arange(0, .1, 0.001), fit_alpha, loc=fit_loc, scale=fit_beta),
-            label='Gamma fit'
-        )
-        ax[1].vlines(
-            jensenshannon(hist_c1, hist_c2),
-            ymin=0.,
-            ymax=200,
-            linestyle='--',
-            color='black',
-            label='Cluster JS'
-        )
-        ax[1].vlines(
-            gamma.interval(1. - 5e-2, fit_alpha, loc=fit_loc, scale=fit_beta),
-            ymin=0.,
-            ymax=200,
-            linestyle='--',
-            color='tab:orange',
-            label='PI 5e-2'
-        )
-        ax[1].legend()
-        ax[1].set_title('Random Jensen-Shannon Distances')
-        ax[1].set_xlabel('JS distance')
-        ax[1].set_ylabel('#Values')
-        fig.suptitle('Pearson Clusters %s' % data_name.replace('_', ' '))
+        ks_pvalues = np.asarray(ks_pvalues)
+        print('P-value %.9f' % np.mean(ks_pvalues))
+        random_pearson = np.sort(np.abs(rand_cluster))
+        random_cdf = np.cumsum(np.sort(np.abs(rand_cluster))) / np.sum(np.abs(rand_cluster))
+        ax[0].hist(np.abs(rand_cluster), bins=n_bins, density=True, histtype='step', color='orange', lw=2, alpha=.8, label='Random')
+        ax[1].plot(random_pearson, random_cdf, color='orange', lw=2, alpha=.8, label='Random')
+        ax[0].legend(loc='upper right', fontsize=12)
+        ax[1].legend(loc='upper left', fontsize=12)
+        fig.suptitle('Pearson clusters %s' % data_name.replace('_', ' '))
         fig.tight_layout()
 
         if save_fig:
-            Path('figures/cluster/JS/%s' % save_dir).mkdir(exist_ok=True, parents=True)
-            plt.savefig('figures/cluster/JS/%s%s_random_js_%s.png' % (save_dir, save_prefix, data_name))
+            Path('figures/cluster/sig/%s' % save_dir).mkdir(exist_ok=True, parents=True)
+            plt.savefig('figures/cluster/sig/%s%s_sig_%s.png' % (save_dir, save_prefix, data_name))
             plt.close(fig)
         else:
             fig.show()
@@ -433,13 +430,18 @@ def plot_clustering(
             fig_c.tight_layout()
             handles.append(Line2D([0], [0], color=color, path_effects=path_effects, linestyle='--'))
             hn.append('%.3fx + %.3f, Error: %.1f%%' % (weight, bias, error * 100.))
-            ax_score_c.legend(handles, hn, fontsize=14)
             if save_fig:
+                fig_leg = plt.figure(figsize=(4.5, 1.2))
+                fig_leg.legend(handles, hn, fontsize=14, loc='center')
                 Path('figures/cluster/fpc_cluster/%s' % save_dir).mkdir(exist_ok=True, parents=True)
                 fig_c.savefig('figures/cluster/fpc_cluster/%s%s_fpc_scores_%s_single_%s.png'
                               % (save_dir, save_prefix, name, n))
+                fig_leg.savefig('figures/cluster/fpc_cluster/%s%s_fpc_scores_%s_single_%s_legend.png'
+                                % (save_dir, save_prefix, name, n))
                 plt.close(fig_c)
+                plt.close(fig_leg)
             else:
+                ax_score_c.legend(handles, hn, fontsize=14)
                 fig_c.show()
 
     if not make_single:
@@ -544,6 +546,7 @@ def fpca_plot(
 
         fpca = FPCA(n_components=2)
         fpc_scores = fpca.fit_transform(bspline_data)
+        print('Number of data points that are not shown: %d' % np.any(np.abs(fpc_scores) > 20, axis=1).sum())
 
         fig, ax = plt.subplots(1, 1, figsize=(5, 4))
         fpca.components_.plot(chart=ax)
